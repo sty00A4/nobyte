@@ -45,9 +45,39 @@ impl Display for Error {
 }
 
 #[macro_export]
-macro_rules! bad_char_error {
-    ($c:literal, $path:expr, $pos:expr) => {
-        Err(self::Error::new(format!("bad character {:?}", $c), Some(path), Some(pos)))
+macro_rules! parse_int_error {
+    ($n:expr, $err:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("error while parsing int {:?}: {}", $n, $err), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! parse_float_error {
+    ($n:expr, $err:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("error while parsing float {:?}: {}", $n, $err), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! expected_char_error {
+    ($path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("expected a character, not end of input"), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! unclosed_char_error {
+    ($path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("unclosed character"), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! unclosed_char_but_error {
+    ($c:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("unclosed character, got {:?}", $c), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! unclosed_string_error {
+    ($path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("unclosed string"), $path, Some($pos)))
     };
 }
 #[macro_export]
