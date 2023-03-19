@@ -2,14 +2,23 @@
 mod position;
 mod error;
 mod lexer;
+mod parser;
 
 use error::Error;
-use std::{process::exit, env, io::{self, Write, Read}, fs};
+use std::{process::exit, env, io::{self, Write}, fs};
+
+#[macro_export]
+macro_rules! join {
+    ($v:expr, $sep:expr) => {
+        $v.iter().map(|x| x.to_string()).collect::<Vec<String>>().join($sep)
+    };
+}
 
 pub fn run(path: Option<String>, text: String) -> Result<(), Error> {
     let tokens = lexer::lex(path.clone(), text)?;
     println!("{tokens:?}");
-    // let ast = parser::parse(path.clone(), tokens)?;
+    let ast = parser::parse(path.clone(), tokens)?;
+    println!("{ast}");
     // let code = code::generate(path.clone(), ast)?;
     // let ret = program::run(path.clone(), code)?;
     Ok(())

@@ -45,6 +45,12 @@ impl Display for Error {
 }
 
 #[macro_export]
+macro_rules! cant_open_error {
+    ($path:expr) => {
+        Err(self::Error::new(format!("couldn't open path {:?}", $path), None, None))
+    };
+}
+#[macro_export]
 macro_rules! parse_int_error {
     ($n:expr, $err:expr, $path:expr, $pos:expr) => {
         Err(self::Error::new(format!("error while parsing int {:?}: {}", $n, $err), $path, Some($pos)))
@@ -81,8 +87,20 @@ macro_rules! unclosed_string_error {
     };
 }
 #[macro_export]
-macro_rules! cant_open_error {
+macro_rules! unexpected_end_error {
     ($path:expr) => {
-        Err(self::Error::new(format!("couldn't open path {:?}", $path), None, None))
+        Err(self::Error::new(format!("unexpected end of file"), $path, None))
+    };
+}
+#[macro_export]
+macro_rules! unexpected_token_error {
+    ($token:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("unexpected {}", $token.name()), $path, None))
+    };
+}
+#[macro_export]
+macro_rules! expected_token_error {
+    ($expect:expr, $token:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("expected {}, got {}", $expect.name(), $token.name()), $path, None))
     };
 }

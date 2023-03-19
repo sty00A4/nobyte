@@ -16,12 +16,30 @@ impl Position {
 }
 
 pub struct Located<T> {
-    item: T,
-    pos: Position
+    pub item: T,
+    pub pos: Position
 }
 impl<T> Located<T> {
     pub fn new(item: T, pos: Position) -> Self {
         Self { item, pos }
+    }
+    pub fn item(self) -> T {
+        self.item
+    }
+    pub fn pos(self) -> Position {
+        self.pos
+    }
+    pub fn item_ref(&self) -> &T {
+        &self.item
+    }
+    pub fn pos_ref(&self) -> &Position {
+        &self.pos
+    }
+    pub fn item_mut(&mut self) -> &mut T {
+        &mut self.item
+    }
+    pub fn pos_mut(&mut self) -> &mut Position {
+        &mut self.pos
     }
 }
 impl<T: Debug> Debug for Located<T> {
