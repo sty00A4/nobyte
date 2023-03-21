@@ -9,6 +9,7 @@ use crate::{
 use super::value::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// todo: Param enum
 pub struct Param {
     name: String,
     typ: Type
