@@ -86,6 +86,7 @@ macro_rules! unclosed_string_error {
         Err(self::Error::new(format!("unclosed string"), $path, Some($pos)))
     };
 }
+
 #[macro_export]
 macro_rules! unexpected_end_error {
     ($path:expr) => {
@@ -95,12 +96,12 @@ macro_rules! unexpected_end_error {
 #[macro_export]
 macro_rules! unexpected_token_error {
     ($token:expr, $path:expr, $pos:expr) => {
-        Err(self::Error::new(format!("unexpected {}", $token.name()), $path, None))
+        Err(self::Error::new(format!("unexpected {}", $token.name()), $path, Some($pos)))
     };
 }
 #[macro_export]
 macro_rules! expected_token_error {
     ($expect:expr, $token:expr, $path:expr, $pos:expr) => {
-        Err(self::Error::new(format!("expected {}, got {}", $expect.name(), $token.name()), $path, None))
+        Err(self::Error::new(format!("expected {}, got {}", $expect.name(), $token.name()), $path, Some($pos)))
     };
 }

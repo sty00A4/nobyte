@@ -78,7 +78,14 @@ impl Lexer {
                 }
                 '@' => {
                     self.advance();
-                    Ok(Some(Located::new(Token::Key, pos)))
+                    let mut word = String::new();
+                    while let Some(c) = self.get() {
+                        if c.is_whitespace() || SYMBOLS.contains(&c) { break }
+                        word.push(c);
+                        pos.extend(&self.pos());
+                        self.advance();
+                    }
+                    Ok(Some(Located::new(Token::Key(word), pos)))
                 }
                 '\'' => {
                     self.advance();

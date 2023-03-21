@@ -6,7 +6,7 @@ pub enum Node {
     Word(String), Int(i64), Float(f64), Bool(bool), Char(char), String(String),
     Call { head: Box<Located<Self>>, args: Vec<Located<Self>> },
     Vector(Vec<Located<Self>>), Body(Vec<Located<Self>>),
-    Closure(Box<Located<Self>>), Key(Box<Located<Self>>)
+    Closure(Box<Located<Self>>), Key(String)
 }
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -21,7 +21,7 @@ impl Display for Node {
             Self::Vector(nodes) => write!(f, "[{}]", join!(nodes, " ")),
             Self::Body(nodes) => write!(f, "{{{}}}", join!(nodes, " ")),
             Self::Closure(node) => write!(f, "#{node}"),
-            Self::Key(node) => write!(f, "@{node}"),
+            Self::Key(word) => write!(f, "@{word}"),
         }
     }
 }

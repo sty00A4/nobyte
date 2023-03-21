@@ -80,7 +80,7 @@ impl Parser {
                 Ok(Located::new(Node::Body(nodes), pos))
             }
             Token::Closure => Ok(Located::new(Node::Closure(Box::new(self.node()?)), pos)),
-            Token::Key => Ok(Located::new(Node::Key(Box::new(self.node()?)), pos)),
+            Token::Key(word) => Ok(Located::new(Node::Key(word), pos)),
             token => unexpected_token_error!(token, self.path.clone(), pos),
         }
     }

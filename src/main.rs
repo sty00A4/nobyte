@@ -3,6 +3,7 @@ mod position;
 mod error;
 mod lexer;
 mod parser;
+mod code;
 
 use error::Error;
 use std::{process::exit, env, io::{self, Write}, fs};
@@ -13,13 +14,20 @@ macro_rules! join {
         $v.iter().map(|x| x.to_string()).collect::<Vec<String>>().join($sep)
     };
 }
+#[macro_export]
+macro_rules! join_enum {
+    ($v:expr, $sep:expr) => {
+        $v.iter().enumerate().map(|(i, x)| format!("{i}\t{x}")).collect::<Vec<String>>().join($sep)
+    };
+}
 
 pub fn run(path: Option<String>, text: String) -> Result<(), Error> {
     let tokens = lexer::lex(path.clone(), text)?;
     println!("{tokens:?}");
     let ast = parser::parse(path.clone(), tokens)?;
     println!("{ast}");
-    // let code = code::generate(path.clone(), ast)?;
+    let code = code::generate(path.clone(), ast)?;
+    println!("{}", join_enum!(code, "\n"));
     // let ret = program::run(path.clone(), code)?;
     Ok(())
 }
