@@ -114,8 +114,12 @@ macro_rules! not_defined_error {
 }
 #[macro_export]
 macro_rules! no_func_with_args_error {
-    ($args:expr, $path:expr, $pos:expr) => {
-        Err(self::Error::new(format!("no definition of function found with args ({})", join_debug!($args, " ")), $path, Some($pos)))
+    ($args:expr, $defs:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("no definition of function found with args ({}), valid:\n{}",
+        join_debug!($args, " "), $defs.iter().map(|(params, _)|
+            format!("({})", params.iter().map(|param| param.typ.to_string()).collect::<Vec<String>>().join(" "))
+        ).collect::<Vec<String>>().join("\n")),
+        $path, Some($pos)))
     };
 }
 #[macro_export]

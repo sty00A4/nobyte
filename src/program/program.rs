@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     *,
@@ -17,6 +17,11 @@ pub struct Param {
 impl Param {
     pub fn new(name: String, typ: Type) -> Self {
         Self { name, typ }
+    }
+}
+impl Display for Param {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.typ)
     }
 }
 macro_rules! param {
@@ -58,9 +63,9 @@ impl Program {
         None
     }
     pub fn func(&mut self, addr: usize, mut args: Vec<Value>, pos: Position) -> Result<Function, Error> {
-        let funcs = self.functions.get(addr).unwrap();
+        let defs = self.functions.get(addr).unwrap();
         let types: Vec<Type> = args.iter().map(|value| value.typ()).collect();
-        'search: for (params, func) in funcs.iter() {
+        'search: for (params, func) in defs.iter() {
             if params.len() != args.len() { continue; }
             for (i, param) in params.iter().enumerate() {
                 if let Some(typ) = types.get(i) {
@@ -79,7 +84,7 @@ impl Program {
             }
             return Ok(func.clone())
         }
-        no_func_with_args_error!(args, self.path.clone(), pos)
+        no_func_with_args_error!(args, defs, self.path.clone(), pos)
     }
 
     pub fn execute(&mut self, code: Closure) -> Result<Value, Error> {
@@ -152,6 +157,7 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     // print
     let mut defs = HashMap::new();
     defs.insert(vec![param!("x", Any)], Function::Native(_print));
+    defs.insert(vec![], Function::Native(_print_empty));
     strings.push("print".into());
     vars.insert("print".into(), Value::Function(functions.len()));
     functions.push(defs);
@@ -212,6 +218,10 @@ pub fn _set(program: &mut Program) -> Result<Value, Error> {
 pub fn _print(program: &mut Program) -> Result<Value, Error> {
     let x = program.var(&"x".into()).unwrap();
     println!("{x}");
+    Ok(Value::None)
+}
+pub fn _print_empty(program: &mut Program) -> Result<Value, Error> {
+    println!();
     Ok(Value::None)
 }
 
