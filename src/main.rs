@@ -1,17 +1,25 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables)]
 mod position;
 mod error;
 mod lexer;
 mod parser;
 mod code;
+mod program;
 
-use error::Error;
 use std::{process::exit, env, io::{self, Write}, fs};
+use error::Error;
+use program::value::Value;
 
 #[macro_export]
 macro_rules! join {
     ($v:expr, $sep:expr) => {
         $v.iter().map(|x| x.to_string()).collect::<Vec<String>>().join($sep)
+    };
+}
+#[macro_export]
+macro_rules! join_debug {
+    ($v:expr, $sep:expr) => {
+        $v.iter().map(|x| format!("{x:?}")).collect::<Vec<String>>().join($sep)
     };
 }
 #[macro_export]
@@ -23,12 +31,15 @@ macro_rules! join_enum {
 
 pub fn run(path: Option<String>, text: String) -> Result<(), Error> {
     let tokens = lexer::lex(path.clone(), text)?;
-    println!("{tokens:?}");
+    // println!("{tokens:?}");
     let ast = parser::parse(path.clone(), tokens)?;
-    println!("{ast}");
-    let code = code::generate(path.clone(), ast)?;
-    println!("{}", join_enum!(code, "\n"));
-    // let ret = program::run(path.clone(), code)?;
+    // println!("{ast}");
+    let (code, strings, closures) = code::generate(path.clone(), ast)?;
+    // println!("{}", join_enum!(code, "\n"));
+    let ret = program::run(path.clone(), code, strings, closures)?;
+    if ret != Value::None {
+        println!("{ret}");
+    }
     Ok(())
 }
 

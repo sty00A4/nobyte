@@ -10,8 +10,8 @@ pub const SDLCL: usize = 35; // string duplicate length check limit
 
 pub struct Generator {
     pub path: Option<String>,
-    strings: Vec<String>,
-    closures: Vec<Closure>,
+    pub strings: Vec<String>,
+    pub closures: Vec<Closure>,
 }
 impl Generator {
     pub fn new(path: Option<String>) -> Self {

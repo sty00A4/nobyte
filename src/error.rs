@@ -105,3 +105,22 @@ macro_rules! expected_token_error {
         Err(self::Error::new(format!("expected {}, got {}", $expect.name(), $token.name()), $path, Some($pos)))
     };
 }
+
+#[macro_export]
+macro_rules! not_defined_error {
+    ($word:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("{:?} is not defined in this scope", $word), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! no_func_with_args_error {
+    ($args:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("no definition of function found with args ({})", join_debug!($args, " ")), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! invalid_head_error {
+    ($args:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("type {} is invalid as a call head", $args), $path, Some($pos)))
+    };
+}
