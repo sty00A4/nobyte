@@ -56,7 +56,7 @@ impl Program {
         }
         None
     }
-    pub fn func(&mut self, addr: usize, args: Vec<Value>, pos: Position) -> Result<Function, Error> {
+    pub fn func(&mut self, addr: usize, mut args: Vec<Value>, pos: Position) -> Result<Function, Error> {
         let funcs = self.functions.get(addr).unwrap();
         let types: Vec<Type> = args.iter().map(|value| value.typ()).collect();
         'search: for (params, func) in funcs.iter() {
@@ -66,12 +66,14 @@ impl Program {
                     if &param.typ != typ {
                         continue 'search;
                     }
-                    match self.vars.last_mut() {
-                        Some(scope) => { scope.insert(param.name.clone(), args[i].clone()); }
-                        None => {}
-                    }
                 } else {
                     continue 'search;
+                }
+            }
+            for param in params.iter() {
+                match self.vars.last_mut() {
+                    Some(scope) => { scope.insert(param.name.clone(), args.remove(0)); }
+                    None => {}
                 }
             }
             return Ok(func.clone())
