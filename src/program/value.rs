@@ -1,5 +1,6 @@
 use std::fmt::{Display, Debug};
 use crate::{join_debug, join};
+use super::program::Param;
 
 #[derive(Clone)]
 pub enum Value {
@@ -7,7 +8,7 @@ pub enum Value {
     Int(i64), Float(f64), Bool(bool), Char(char), String(String), Type(Type),
     Vector(Vec<Self>),
     Closure(usize),
-    Function(usize),
+    Function(usize), Params(Vec<Param>)
 }
 impl Value {
     pub fn typ(&self) -> Type {
@@ -22,6 +23,7 @@ impl Value {
             Self::Vector(_) => Type::Vector,
             Self::Closure(_) => Type::Closure,
             Self::Function(_) => Type::Function,
+            Self::Params(_) => Type::Params,
         }
     }
 }
@@ -38,6 +40,7 @@ impl Display for Value {
             Self::Vector(values) => write!(f, "[{}]", join_debug!(values, ", ")),
             Self::Closure(addr) => write!(f, "closure:{addr:x}"),
             Self::Function(addr) => write!(f, "function:{addr:x}"),
+            Self::Params(params) => write!(f, "params:({})", join!(params, " ")),
         }
     }
 }
@@ -54,6 +57,7 @@ impl Debug for Value {
             Self::Vector(values) => write!(f, "[{}]", join_debug!(values, ", ")),
             Self::Closure(addr) => write!(f, "closure:{addr:x}"),
             Self::Function(addr) => write!(f, "function:{addr:x}"),
+            Self::Params(params) => write!(f, "params:({})", join!(params, " ")),
         }
     }
 }
@@ -83,7 +87,7 @@ impl Default for Value {
 pub enum Type {
     None, Any,
     Int, Float, Bool, Char, String, Vector,
-    Closure, Function,
+    Closure, Function, Params,
     Type,
     Union(Vec<Type>)
 }
@@ -105,6 +109,7 @@ impl Debug for Type {
             Self::Vector => write!(f, "vec"),
             Self::Closure => write!(f, "closure"),
             Self::Function => write!(f, "function"),
+            Self::Params => write!(f, "params"),
             Self::Type => write!(f, "type"),
             Self::Union(types) => write!(f, "{}", join!(types, "|")),
         }
@@ -123,6 +128,7 @@ impl PartialEq for Type {
             (Self::Vector, Self::Vector) => true,
             (Self::Closure, Self::Closure) => true,
             (Self::Function, Self::Function) => true,
+            (Self::Params, Self::Params) => true,
             (Self::Type, Self::Type) => true,
             (Self::Union(types1), Self::Union(types2)) => {
                 for type2 in types2 {

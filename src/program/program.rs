@@ -73,10 +73,12 @@ impl Program {
         self.vars.pop()
     }
 
-    pub fn new_func(&mut self, params: Vec<Param>, func: Function) {
+    pub fn new_func(&mut self, params: Vec<Param>, func: Function) -> usize {
         let mut defs = vec![];
         defs.push((params, func));
+        let addr = self.functions.len();
         self.functions.push(defs);
+        addr
     }
     pub fn set(&mut self, word: String, value: Value) -> Option<Value> {
         self.vars.last_mut()?.insert(word, value)
@@ -167,7 +169,7 @@ impl Program {
                         };
                         params.push(Param::new(word, typ, multi));
                     }
-                    // param value type
+                    self.stack.push(Value::Params(params.into_iter().rev().collect()));
                 }
                 Call(len) => {
                     let head = self.stack.pop().unwrap();
@@ -290,10 +292,10 @@ impl Program {
                             program.pop_scope();
                             Ok(value)
                         }
-                        Value::Function(addr) => match program.func(addr, args, pos)? {
+                        Value::Function(addr) => match program.func(addr, args, pos.clone())? {
                             Function::Native(func) => {
                                 program.push_scope();
-                                let value = func(program)?;
+                                let value = func(program, pos)?;
                                 program.pop_scope();
                                 Ok(value)
                             }
@@ -320,7 +322,7 @@ impl Program {
 
 #[derive(Clone)]
 pub enum Function {
-    Native(fn(&mut Program) -> Result<Value, Error>), Function(Closure)
+    Native(fn(&mut Program, Position) -> Result<Value, Error>), Function(Closure)
 }
 
 pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec<Closure>) -> Program {
@@ -357,6 +359,12 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     defs.push((vec![param!("var", String)], Function::Native(_get)));
     strings.push("get".into());
     vars.insert("get".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // def
+    let mut defs = vec![];
+    defs.push((vec![param!("name", String), param!("params", Params), param!("closure", Closure)], Function::Native(_def)));
+    strings.push("def".into());
+    vars.insert("def".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     // print
@@ -401,7 +409,7 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     Program::new(path, strings, closures, functions, vec![vars])
 }
 
-pub fn _set(program: &mut Program) -> Result<Value, Error> {
+pub fn _set(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::String(var) = program.var(&"var".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -412,7 +420,7 @@ pub fn _set(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(Value::None)
 }
-pub fn _global(program: &mut Program) -> Result<Value, Error> {
+pub fn _global(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::String(var) = program.var(&"var".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -423,14 +431,41 @@ pub fn _global(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(Value::None)
 }
-pub fn _get(program: &mut Program) -> Result<Value, Error> {
+pub fn _get(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::String(var) = program.var(&"var".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
     Ok(program.var(&var).unwrap_or_default())
 }
+pub fn _def(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::String(name) = program.var(&"name".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let Value::Params(params) = program.var(&"params".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let Value::Closure(closure) = program.var(&"closure".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let func = Function::Function(program.closures[closure].clone());
+    let len = program.vars.len();
+    if let Some(value) = program.var(&name) {
+        if let Value::Function(addr) = value {
+            let defs = program.functions.get_mut(addr).unwrap();
+            defs.push((params, func));
+        } else {
+            return Err(Error::new(format!("{name:?} is already defined as a {}", value.typ()), program.path.clone(), Some(pos)))
+        }
+    } else {
+        let addr = program.new_func(params, func);
+        if let Some(scope) = program.vars.get_mut(len - 2) {
+            scope.insert(name, Value::Function(addr));
+        }
+    }
+    Ok(Value::None)
+}
 
-pub fn _print(program: &mut Program) -> Result<Value, Error> {
+pub fn _print(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(x) = program.var(&"x".into()).unwrap() else {
         panic!("type checking doesn't work")
     };
@@ -438,7 +473,7 @@ pub fn _print(program: &mut Program) -> Result<Value, Error> {
     Ok(Value::None)
 }
 
-pub fn _add(program: &mut Program) -> Result<Value, Error> {
+pub fn _add(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -460,7 +495,7 @@ pub fn _add(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(sum)
 }
-pub fn _sub(program: &mut Program) -> Result<Value, Error> {
+pub fn _sub(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -489,7 +524,7 @@ pub fn _sub(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(sum)
 }
-pub fn _mul(program: &mut Program) -> Result<Value, Error> {
+pub fn _mul(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -511,7 +546,7 @@ pub fn _mul(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(sum)
 }
-pub fn _div(program: &mut Program) -> Result<Value, Error> {
+pub fn _div(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
@@ -533,7 +568,7 @@ pub fn _div(program: &mut Program) -> Result<Value, Error> {
     }
     Ok(sum)
 }
-pub fn _union(program: &mut Program) -> Result<Value, Error> {
+pub fn _union(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
