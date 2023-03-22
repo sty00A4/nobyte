@@ -130,3 +130,33 @@ macro_rules! invalid_head_error {
         Err(self::Error::new(format!("type {} is invalid as a call head", $args), $path, Some($pos)))
     };
 }
+#[macro_export]
+macro_rules! illegal_cast_to_error {
+    ($from:expr, $to:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("cannot cast from {} to {}", $from, $to), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! illegal_cast_from_error {
+    ($from:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("cannot cast from {}", $from), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! illegal_index_value_error {
+    ($typ:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("cannot index type {}", $typ), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! can_only_index_string_with_int {
+    ($path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("can only index str with int"), $path, Some($pos)))
+    };
+}
+#[macro_export]
+macro_rules! can_only_index_vector_with_int {
+    ($path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("can only index vec with int"), $path, Some($pos)))
+    };
+}

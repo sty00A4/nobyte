@@ -161,36 +161,137 @@ impl Program {
                         args.push(self.stack.pop().unwrap());
                     }
                     let mut args: Vec<Value> = args.into_iter().rev().collect();
-                    match head {
-                        Value::Int(index) => todo!(),
-                        Value::Bool(cond) => todo!(),
-                        Value::Type(typ) => todo!(),
-                        Value::Closure(addr) => {
-                            self.push_scope();
-                            let closure = self.closures[addr].clone();
-                            for i in 0..args.len() {
-                                self.set(i.to_string(), args.remove(0));
+                    let value = (|program: &mut Self| match head {
+                        Value::Bool(cond) => if cond {
+                            if args.get(0).is_some() {
+                                Ok(args.remove(0))
+                            } else {
+                                Ok(Value::None)
                             }
-                            let value = self.execute(closure)?;
-                            self.pop_scope();
-                            self.stack.push(value);
+                        } else {
+                            if args.get(1).is_some() {
+                                Ok(args.remove(1))
+                            } else {
+                                Ok(Value::None)
+                            }
                         }
-                        Value::Function(addr) => match self.func(addr, args, pos)? {
+                        Value::String(string) => if args.len() > 0 {
+                            if args.len() > 1 {
+                                let (start, end) = (args.remove(0), args.remove(0));
+                                if let (Value::Int(start), Value::Int(end)) = (start, end) {
+                                    let (start, end) = (start.max(0) as usize, end.max(0) as usize);
+                                    if let Some(sub) = string.get(start..end) {
+                                        Ok(Value::String(sub.to_string()))
+                                    } else {
+                                        Ok(Value::None)
+                                    }
+                                } else {
+                                    can_only_index_string_with_int!(program.path.clone(), pos)
+                                }
+                            } else {
+                                let index = args.remove(0);
+                                if let Value::Int(index) = index {
+                                    let index = index.max(0) as usize;
+                                    if let Some(sub) = string.get(index..index + 1) {
+                                        Ok(Value::Char(sub.chars().next().unwrap()))
+                                    } else {
+                                        Ok(Value::None)
+                                    }
+                                } else {
+                                    can_only_index_string_with_int!(program.path.clone(), pos)
+                                }
+                            }
+                        } else {
+                            Ok(Value::None)
+                        }
+                        Value::Vector(mut vector) => if args.len() > 0 {
+                            let index = args.remove(0);
+                            if let Value::Int(index) = index {
+                                let index = index.min(0) as usize;
+                                if vector.get(index).is_some() {
+                                    Ok(vector.remove(index))
+                                } else {
+                                    Ok(Value::None)
+                                }
+                            } else {
+                                can_only_index_vector_with_int!(program.path.clone(), pos)
+                            }
+                        } else {
+                            Ok(Value::None)
+                        }
+                        Value::Type(typ) => match typ {
+                            Type::None => Ok(Value::None),
+                            Type::Any => Ok(args.remove(0)),
+                            Type::Int => match args.get(0).unwrap_or_else(|| &Value::None) {
+                                Value::Int(int) => Ok(Value::Int(*int)),
+                                Value::Float(float) => Ok(Value::Int(float.floor() as i64)),
+                                Value::Bool(bool) => Ok(Value::Int(if *bool { 1 } else { 0 })),
+                                Value::Char(char) => Ok(Value::Int(*char as u8 as i64)),
+                                Value::String(string) => Ok(match string.parse() {
+                                    Ok(int) => Value::Int(int),
+                                    Err(_) => Value::None,
+                                }),
+                                cast_typ => illegal_cast_to_error!(typ, cast_typ.typ(), program.path.clone(), pos)
+                            }
+                            Type::Float => match args.get(0).unwrap_or_else(|| &Value::None) {
+                                Value::Int(int) => Ok(Value::Float(*int as f64)),
+                                Value::Float(float) => Ok(Value::Float(*float)),
+                                Value::Bool(bool) => Ok(Value::Float(if *bool { 1. } else { 0. })),
+                                Value::Char(char) => Ok(Value::Float(*char as u8 as i64 as f64)),
+                                Value::String(string) => Ok(match string.parse() {
+                                    Ok(float) => Value::Float(float),
+                                    Err(_) => Value::None,
+                                }),
+                                cast_typ => illegal_cast_to_error!(typ, cast_typ.typ(), program.path.clone(), pos)
+                            }
+                            Type::Bool => match args.get(0).unwrap_or_else(|| &Value::None) {
+                                Value::Int(int) => Ok(Value::Bool(*int != 0)),
+                                Value::Float(float) => Ok(Value::Bool(*float != 0.)),
+                                Value::Bool(bool) => Ok(Value::Bool(*bool)),
+                                Value::Char(char) => Ok(Value::Bool(*char as u8 != 0)),
+                                Value::String(string) => Ok(match string.parse() {
+                                    Ok(bool) => Value::Bool(bool),
+                                    Err(_) => Value::None,
+                                }),
+                                cast_typ => illegal_cast_to_error!(typ, cast_typ.typ(), program.path.clone(), pos)
+                            }
+                            Type::Char => match args.get(0).unwrap_or_else(|| &Value::None) {
+                                Value::Int(int) => Ok(Value::Char((*int % 256) as u8 as char)),
+                                Value::Char(char) => Ok(Value::Char(*char)),
+                                cast_typ => return illegal_cast_to_error!(typ, cast_typ.typ(), program.path.clone(), pos)
+                            }
+                            Type::String => Ok(Value::String(args.get(0).unwrap_or_else(|| &Value::None).to_string())),
+                            Type::Vector => Ok(Value::Vector(args)),
+                            Type::Type => Ok(Value::Type(args.get(0).unwrap_or_else(|| &Value::None).typ())),
+                            typ => illegal_cast_from_error!(typ, program.path.clone(), pos)
+                        }
+                        Value::Closure(addr) => {
+                            program.push_scope();
+                            let closure = program.closures[addr].clone();
+                            for i in 0..args.len() {
+                                program.set(i.to_string(), args.remove(0));
+                            }
+                            let value = program.execute(closure)?;
+                            program.pop_scope();
+                            Ok(value)
+                        }
+                        Value::Function(addr) => match program.func(addr, args, pos)? {
                             Function::Native(func) => {
-                                self.push_scope();
-                                let value = func(self)?;
-                                self.pop_scope();
-                                self.stack.push(value);
+                                program.push_scope();
+                                let value = func(program)?;
+                                program.pop_scope();
+                                Ok(value)
                             }
                             Function::Function(closure) => {
-                                self.push_scope();
-                                let value = self.execute(closure)?;
-                                self.pop_scope();
-                                self.stack.push(value);
+                                program.push_scope();
+                                let value = program.execute(closure)?;
+                                program.pop_scope();
+                                Ok(value)
                             }
                         }
-                        head => return invalid_head_error!(head.typ(), self.path.clone(), pos)
-                    }
+                        head => invalid_head_error!(head.typ(), program.path.clone(), pos)
+                    })(self)?;
+                    self.stack.push(value);
                 }
             }
         }
