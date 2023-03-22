@@ -311,6 +311,17 @@ pub enum Function {
 pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec<Closure>) -> Program {
     let mut functions = vec![];
     let mut vars = HashMap::new();
+    vars.insert("nonetype".into(), Value::Type(Type::None));
+    vars.insert("any".into(), Value::Type(Type::Any));
+    vars.insert("int".into(), Value::Type(Type::Int));
+    vars.insert("float".into(), Value::Type(Type::Float));
+    vars.insert("bool".into(), Value::Type(Type::Bool));
+    vars.insert("char".into(), Value::Type(Type::Char));
+    vars.insert("str".into(), Value::Type(Type::String));
+    vars.insert("vec".into(), Value::Type(Type::Vector));
+    vars.insert("closure".into(), Value::Type(Type::Closure));
+    vars.insert("function".into(), Value::Type(Type::Function));
+    vars.insert("type".into(), Value::Type(Type::Type));
 
     // set
     let mut defs = vec![];
