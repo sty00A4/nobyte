@@ -73,6 +73,11 @@ impl PartialEq for Value {
         }
     }
 }
+impl Default for Value {
+    fn default() -> Self {
+        Self::None
+    }
+}
 
 #[derive(Clone, Eq, Hash)]
 pub enum Type {
@@ -130,5 +135,10 @@ impl PartialEq for Type {
             (Self::Union(types), typ) => types.contains(typ),
             _ => false
         }
+    }
+}
+impl Default for Type {
+    fn default() -> Self {
+        Self::None
     }
 }

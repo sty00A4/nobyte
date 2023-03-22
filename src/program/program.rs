@@ -78,6 +78,9 @@ impl Program {
         defs.push((params, func));
         self.functions.push(defs);
     }
+    pub fn set(&mut self, word: String, value: Value) -> Option<Value> {
+        self.vars.last_mut()?.insert(word, value)
+    }
     pub fn var(&self, word: &String) -> Option<Value> {
         for scope in self.vars.iter() {
             if let Some(value) = scope.get(word) {
@@ -157,12 +160,21 @@ impl Program {
                     for _ in 0..len {
                         args.push(self.stack.pop().unwrap());
                     }
-                    let args: Vec<Value> = args.into_iter().rev().collect();
+                    let mut args: Vec<Value> = args.into_iter().rev().collect();
                     match head {
                         Value::Int(index) => todo!(),
                         Value::Bool(cond) => todo!(),
                         Value::Type(typ) => todo!(),
-                        Value::Closure(addr) => todo!(),
+                        Value::Closure(addr) => {
+                            self.push_scope();
+                            let closure = self.closures[addr].clone();
+                            for i in 0..args.len() {
+                                self.set(i.to_string(), args.remove(0));
+                            }
+                            let value = self.execute(closure)?;
+                            self.pop_scope();
+                            self.stack.push(value);
+                        }
                         Value::Function(addr) => match self.func(addr, args, pos)? {
                             Function::Native(func) => {
                                 self.push_scope();
@@ -204,6 +216,18 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     defs.push((vec![param!("var", String), param!("value", Any)], Function::Native(_set)));
     strings.push("set".into());
     vars.insert("set".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // global
+    let mut defs = vec![];
+    defs.push((vec![param!("var", String), param!("value", Any)], Function::Native(_global)));
+    strings.push("global".into());
+    vars.insert("global".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // get
+    let mut defs = vec![];
+    defs.push((vec![param!("var", String)], Function::Native(_get)));
+    strings.push("get".into());
+    vars.insert("get".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     // print
@@ -251,6 +275,23 @@ pub fn _set(program: &mut Program) -> Result<Value, Error> {
         scope.insert(var, value);
     }
     Ok(Value::None)
+}
+pub fn _global(program: &mut Program) -> Result<Value, Error> {
+    let Value::String(var) = program.var(&"var".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let value = program.var(&"value".into()).unwrap();
+    let len = program.vars.len();
+    if let Some(scope) = program.vars.first_mut() {
+        scope.insert(var, value);
+    }
+    Ok(Value::None)
+}
+pub fn _get(program: &mut Program) -> Result<Value, Error> {
+    let Value::String(var) = program.var(&"var".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    Ok(program.var(&var).unwrap_or_default())
 }
 
 pub fn _print(program: &mut Program) -> Result<Value, Error> {
