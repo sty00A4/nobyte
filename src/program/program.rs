@@ -65,6 +65,14 @@ impl Program {
             stack: vec![],
         }
     }
+
+    pub fn push_scope(&mut self) {
+        self.vars.push(HashMap::new());
+    }
+    pub fn pop_scope(&mut self) -> Option<HashMap<String, Value>> {
+        self.vars.pop()
+    }
+
     pub fn new_func(&mut self, params: Vec<Param>, func: Function) {
         let mut defs = vec![];
         defs.push((params, func));
@@ -157,11 +165,15 @@ impl Program {
                         Value::Closure(addr) => todo!(),
                         Value::Function(addr) => match self.func(addr, args, pos)? {
                             Function::Native(func) => {
+                                self.push_scope();
                                 let value = func(self)?;
+                                self.pop_scope();
                                 self.stack.push(value);
                             }
                             Function::Function(closure) => {
+                                self.push_scope();
                                 let value = self.execute(closure)?;
+                                self.pop_scope();
                                 self.stack.push(value);
                             }
                         }
@@ -234,7 +246,8 @@ pub fn _set(program: &mut Program) -> Result<Value, Error> {
         panic!("type checking doesn't work");
     };
     let value = program.var(&"value".into()).unwrap();
-    if let Some(scope) = program.vars.last_mut() {
+    let len = program.vars.len();
+    if let Some(scope) = program.vars.get_mut(len - 2) {
         scope.insert(var, value);
     }
     Ok(Value::None)
