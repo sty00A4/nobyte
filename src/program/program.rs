@@ -12,21 +12,37 @@ use super::value::*;
 // todo: Param enum
 pub struct Param {
     name: String,
-    typ: Type
+    typ: Type,
+    multi: bool
 }
 impl Param {
-    pub fn new(name: String, typ: Type) -> Self {
-        Self { name, typ }
+    pub fn new(name: String, typ: Type, multi: bool) -> Self {
+        Self { name, typ, multi }
     }
 }
 impl Display for Param {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.name, self.typ)
+        write!(f, "{} {}{}", self.name, self.typ, if self.multi { "..." } else { "" })
     }
 }
 macro_rules! param {
     ($name:literal, $typ:ident) => {
-        Param::new($name.into(), Type::$typ)
+        Param::new($name.into(), Type::$typ, false)
+    };
+}
+macro_rules! param_union {
+    ($name:literal, $types:expr) => {
+        Param::new($name.into(), Type::Union(Vec::from($types)), false)
+    };
+}
+macro_rules! param_multi {
+    ($name:literal, $typ:ident) => {
+        Param::new($name.into(), Type::$typ, true)
+    };
+}
+macro_rules! param_union_multi {
+    ($name:literal, $types:expr) => {
+        Param::new($name.into(), Type::Union(Vec::from($types)), true)
     };
 }
 
@@ -35,14 +51,14 @@ pub struct Program {
     strings: Vec<String>,
     closures: Vec<Closure>,
 
-    functions: Vec<HashMap<Vec<Param>, Function>>,
+    functions: Vec<Vec<(Vec<Param>, Function)>>,
     vars: Vec<HashMap<String, Value>>,
 
     stack: Vec<Value>,
 }
 impl Program {
     pub fn new(path: Option<String>, strings: Vec<String>, closures: Vec<Closure>,
-               functions: Vec<HashMap<Vec<Param>, Function>>, vars: Vec<HashMap<String, Value>>) -> Self {
+               functions: Vec<Vec<(Vec<Param>, Function)>>, vars: Vec<HashMap<String, Value>>) -> Self {
         Self {
             path, strings, closures,
             functions, vars,
@@ -50,8 +66,8 @@ impl Program {
         }
     }
     pub fn new_func(&mut self, params: Vec<Param>, func: Function) {
-        let mut defs = HashMap::new();
-        defs.insert(params, func);
+        let mut defs = vec![];
+        defs.push((params, func));
         self.functions.push(defs);
     }
     pub fn var(&self, word: &String) -> Option<Value> {
@@ -66,19 +82,46 @@ impl Program {
         let defs = self.functions.get(addr).unwrap();
         let types: Vec<Type> = args.iter().map(|value| value.typ()).collect();
         'search: for (params, func) in defs.iter() {
-            if params.len() != args.len() { continue; }
-            for (i, param) in params.iter().enumerate() {
-                if let Some(typ) = types.get(i) {
+            let mut arg_idx = 0;
+            for param in params.iter() {
+                if let Some(typ) = types.get(arg_idx) {
                     if &param.typ != typ {
                         continue 'search;
+                    }
+                    arg_idx += 1;
+                    if param.multi {
+                        while let Some(typ) = types.get(arg_idx) {
+                            if &param.typ != typ {
+                                break;
+                            }
+                            arg_idx += 1;
+                        }
                     }
                 } else {
                     continue 'search;
                 }
             }
+            if arg_idx < params.len() {
+                continue;
+            }
+            arg_idx = 0;
             for param in params.iter() {
                 match self.vars.last_mut() {
-                    Some(scope) => { scope.insert(param.name.clone(), args.remove(0)); }
+                    Some(scope) => if param.multi {
+                        let mut vector = vec![args.remove(0)];
+                        arg_idx += 1;
+                        while let Some(typ) = types.get(arg_idx) {
+                            if &param.typ != typ {
+                                break;
+                            }
+                            vector.push(args.remove(0));
+                            arg_idx += 1;
+                        }
+                        scope.insert(param.name.clone(), Value::Vector(vector));
+                    } else {
+                        scope.insert(param.name.clone(), args.remove(0));
+                        arg_idx += 1;
+                    }
                     None => {}
                 }
             }
@@ -148,55 +191,40 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     let mut vars = HashMap::new();
 
     // set
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("var", String), param!("value", Any)], Function::Native(_set));
+    let mut defs = vec![];
+    defs.push((vec![param!("var", String), param!("value", Any)], Function::Native(_set)));
     strings.push("set".into());
     vars.insert("set".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     // print
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("x", Any)], Function::Native(_print));
-    defs.insert(vec![], Function::Native(_print_empty));
+    let mut defs = vec![];
+    defs.push((vec![param_multi!("x", Any)], Function::Native(_print)));
     strings.push("print".into());
     vars.insert("print".into(), Value::Function(functions.len()));
     functions.push(defs);
     
     // +
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("a", Int), param!("b", Int)], Function::Native(_add_int_int));
-    defs.insert(vec![param!("a", Float), param!("b", Float)], Function::Native(_add_float_float));
-    defs.insert(vec![param!("a", Int), param!("b", Float)], Function::Native(_add_int_float));
-    defs.insert(vec![param!("a", Float), param!("b", Int)], Function::Native(_add_float_int));
+    let mut defs = vec![];
+    defs.push((vec![param_union_multi!("values", [Type::Int, Type::Float])], Function::Native(_add)));
     strings.push("+".into());
     vars.insert("+".into(), Value::Function(functions.len()));
     functions.push(defs);
     // -
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("a", Int), param!("b", Int)], Function::Native(_sub_int_int));
-    defs.insert(vec![param!("a", Float), param!("b", Float)], Function::Native(_sub_float_float));
-    defs.insert(vec![param!("a", Int), param!("b", Float)], Function::Native(_sub_int_float));
-    defs.insert(vec![param!("a", Float), param!("b", Int)], Function::Native(_sub_float_int));
-    defs.insert(vec![param!("x", Int)], Function::Native(_neg_int));
-    defs.insert(vec![param!("x", Float)], Function::Native(_neg_float));
+    let mut defs = vec![];
+    defs.push((vec![param_union_multi!("values", [Type::Int, Type::Float])], Function::Native(_sub)));
     strings.push("-".into());
     vars.insert("-".into(), Value::Function(functions.len()));
     functions.push(defs);
     // *
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("a", Int), param!("b", Int)], Function::Native(_mul_int_int));
-    defs.insert(vec![param!("a", Float), param!("b", Float)], Function::Native(_mul_float_float));
-    defs.insert(vec![param!("a", Int), param!("b", Float)], Function::Native(_mul_int_float));
-    defs.insert(vec![param!("a", Float), param!("b", Int)], Function::Native(_mul_float_int));
+    let mut defs = vec![];
+    defs.push((vec![param_union_multi!("values", [Type::Int, Type::Float])], Function::Native(_mul)));
     strings.push("*".into());
     vars.insert("*".into(), Value::Function(functions.len()));
     functions.push(defs);
     // /
-    let mut defs = HashMap::new();
-    defs.insert(vec![param!("a", Int), param!("b", Int)], Function::Native(_div_int_int));
-    defs.insert(vec![param!("a", Float), param!("b", Float)], Function::Native(_div_float_float));
-    defs.insert(vec![param!("a", Int), param!("b", Float)], Function::Native(_div_int_float));
-    defs.insert(vec![param!("a", Float), param!("b", Int)], Function::Native(_div_float_int));
+    let mut defs = vec![];
+    defs.push((vec![param_union_multi!("values", [Type::Int, Type::Float])], Function::Native(_div)));
     strings.push("/".into());
     vars.insert("/".into(), Value::Function(functions.len()));
     functions.push(defs);
@@ -216,171 +244,105 @@ pub fn _set(program: &mut Program) -> Result<Value, Error> {
 }
 
 pub fn _print(program: &mut Program) -> Result<Value, Error> {
-    let x = program.var(&"x".into()).unwrap();
-    println!("{x}");
+    let Value::Vector(x) = program.var(&"x".into()).unwrap() else {
+        panic!("type checking doesn't work")
+    };
+    println!("{}", join!(x, " "));
     Ok(Value::None)
 }
-pub fn _print_empty(program: &mut Program) -> Result<Value, Error> {
-    println!();
-    Ok(Value::None)
-}
 
-pub fn _add_int_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
+pub fn _add(program: &mut Program) -> Result<Value, Error> {
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Int(a + b))
+    let mut sum = values.remove(0);
+    while values.len() > 0 {
+        match values.remove(0) {
+            Value::Int(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Int(*n1 + n2),
+                Value::Float(n1) => sum = Value::Float(*n1 + n2 as f64),
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Float(*n1 as f64 + n2),
+                Value::Float(n1) => sum = Value::Float(*n1 + n2),
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+    }
+    Ok(sum)
 }
-pub fn _add_float_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
+pub fn _sub(program: &mut Program) -> Result<Value, Error> {
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a + b))
+    let mut sum = values.remove(0);
+    if values.len() == 0 {
+        return match sum {
+            Value::Int(sum) => Ok(Value::Int(-sum)),
+            Value::Float(sum) => Ok(Value::Float(-sum)),
+            _ => panic!("type checking doesn't work")
+        }
+    }
+    while values.len() > 0 {
+        match values.remove(0) {
+            Value::Int(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Int(*n1 - n2),
+                Value::Float(n1) => sum = Value::Float(*n1 - n2 as f64),
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Float(*n1 as f64 - n2),
+                Value::Float(n1) => sum = Value::Float(*n1 - n2),
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+    }
+    Ok(sum)
 }
-pub fn _add_int_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
+pub fn _mul(program: &mut Program) -> Result<Value, Error> {
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a as f64 + b))
+    let mut sum = values.remove(0);
+    while values.len() > 0 {
+        match values.remove(0) {
+            Value::Int(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Int(*n1 * n2),
+                Value::Float(n1) => sum = Value::Float(*n1 * n2 as f64),
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Float(*n1 as f64 * n2),
+                Value::Float(n1) => sum = Value::Float(*n1 * n2),
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+    }
+    Ok(sum)
 }
-pub fn _add_float_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
+pub fn _div(program: &mut Program) -> Result<Value, Error> {
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a + b as f64))
-}
-
-pub fn _sub_int_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Int(a - b))
-}
-pub fn _sub_float_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a - b))
-}
-pub fn _sub_int_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a as f64 - b))
-}
-pub fn _sub_float_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a - b as f64))
-}
-pub fn _neg_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(x) = program.var(&"x".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Int(-x))
-}
-pub fn _neg_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(x) = program.var(&"x".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(-x))
-}
-
-pub fn _mul_int_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Int(a * b))
-}
-pub fn _mul_float_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a * b))
-}
-pub fn _mul_int_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a as f64 * b))
-}
-pub fn _mul_float_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a * b as f64))
-}
-
-pub fn _div_int_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Int(a / b))
-}
-pub fn _div_float_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a / b))
-}
-pub fn _div_int_float(program: &mut Program) -> Result<Value, Error> {
-    let Value::Int(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Float(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a as f64 / b))
-}
-pub fn _div_float_int(program: &mut Program) -> Result<Value, Error> {
-    let Value::Float(a) = program.var(&"a".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    let Value::Int(b) = program.var(&"b".into()).unwrap() else {
-        panic!("type checking doesn't work");
-    };
-    Ok(Value::Float(a / b as f64))
+    let mut sum = values.remove(0);
+    while values.len() > 0 {
+        match values.remove(0) {
+            Value::Int(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Float(*n1 as f64 / n2 as f64),
+                Value::Float(n1) => sum = Value::Float(*n1 / n2 as f64),
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &sum {
+                Value::Int(n1) => sum = Value::Float(*n1 as f64 / n2),
+                Value::Float(n1) => sum = Value::Float(*n1 / n2),
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+    }
+    Ok(sum)
 }

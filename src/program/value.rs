@@ -1,5 +1,5 @@
 use std::fmt::{Display, Debug};
-use crate::join_debug;
+use crate::{join_debug, join};
 
 #[derive(Clone)]
 pub enum Value {
@@ -79,7 +79,8 @@ pub enum Type {
     None, Any,
     Int, Float, Bool, Char, String, Vector,
     Closure, Function,
-    Type
+    Type,
+    Union(Vec<Type>)
 }
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -100,6 +101,7 @@ impl Debug for Type {
             Self::Closure => write!(f, "closure"),
             Self::Function => write!(f, "function"),
             Self::Type => write!(f, "type"),
+            Self::Union(types) => write!(f, "{}", join!(types, "|")),
         }
     }
 }
@@ -117,6 +119,15 @@ impl PartialEq for Type {
             (Self::Closure, Self::Closure) => true,
             (Self::Function, Self::Function) => true,
             (Self::Type, Self::Type) => true,
+            (Self::Union(types1), Self::Union(types2)) => {
+                for type2 in types2 {
+                    if !types1.contains(type2) {
+                        return false
+                    }
+                }
+                true
+            }
+            (Self::Union(types), typ) => types.contains(typ),
             _ => false
         }
     }
