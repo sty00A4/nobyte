@@ -79,13 +79,24 @@ impl Lexer {
                 '@' => {
                     self.advance();
                     let mut word = String::new();
-                    while let Some(c) = self.get() {
-                        if c.is_whitespace() || SYMBOLS.contains(&c) { break }
-                        word.push(c);
+                    if self.get() == Some('(') {
                         pos.extend(&self.pos());
                         self.advance();
+                        Ok(Some(Located::new(Token::ParamIn, pos)))
+                    } else {
+                        while let Some(c) = self.get() {
+                            if c.is_whitespace() || SYMBOLS.contains(&c) {
+                                if word.len() == 0 {
+                                    return expected_char_error!(self.path.clone(), self.pos())
+                                }
+                                break
+                            }
+                            word.push(c);
+                            pos.extend(&self.pos());
+                            self.advance();
+                        }
+                        Ok(Some(Located::new(Token::Key(word), pos)))
                     }
-                    Ok(Some(Located::new(Token::Key(word), pos)))
                 }
                 '\'' => {
                     self.advance();

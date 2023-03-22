@@ -1,6 +1,6 @@
 use crate::{
     position::*,
-    parser::node::Node,
+    parser::node::{Node, ParamNode},
     error::Error
 };
 use super::instr::Instr;
@@ -93,6 +93,16 @@ impl Generator {
             Node::Key(key) => {
                 let addr = self.new_string(key);
                 self.write(Instr::String(addr), pos, code);
+            }
+            Node::Params(params) => {
+                let len = params.len();
+                for ParamNode { word, typ, multi } in params {
+                    let addr = self.new_string(word);
+                    self.write(Instr::String(addr), pos.clone(), code);
+                    self.generate(typ, code)?;
+                    self.write(Instr::Bool(multi), pos.clone(), code)
+                }
+                self.write(Instr::Params(len), pos, code);
             }
         }
         Ok(())

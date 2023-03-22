@@ -153,7 +153,22 @@ impl Program {
                     Some(value) => self.stack.push(value.clone()),
                     None => return not_defined_error!(self.strings[addr].clone(), self.path.clone(), pos)
                 }
-                Params(_) => todo!(),
+                Params(len) => {
+                    let mut params: Vec<Param> = vec![];
+                    for i in 0..len {
+                        let Value::Bool(multi) = self.stack.pop().unwrap() else {
+                            panic!("parsing params wrong")
+                        };
+                        let Value::Type(typ) = self.stack.pop().unwrap() else {
+                            return param_no_type!(len - i, self.path.clone(), pos)
+                        };
+                        let Value::String(word) = self.stack.pop().unwrap() else {
+                            panic!("parsing params wrong")
+                        };
+                        params.push(Param::new(word, typ, multi));
+                    }
+                    // param value type
+                }
                 Call(len) => {
                     let head = self.stack.pop().unwrap();
                     let mut args = vec![];

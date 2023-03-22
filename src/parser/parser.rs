@@ -3,7 +3,7 @@ use crate::{
     position::*,
     lexer::token::Token, error::Error
 };
-use super::node::Node;
+use super::node::{Node, ParamNode};
 
 pub struct Parser {
     pub path: Option<String>,
@@ -58,6 +58,26 @@ impl Parser {
                 let Located { item: _, pos: end_pos } = self.expect(Token::CallOut)?;
                 pos.extend(&end_pos);
                 Ok(Located::new(Node::Call { head, args }, pos))
+            }
+            Token::ParamIn => {
+                let mut params = vec![];
+                while let Some(Located { item: token, pos: _ }) = self.token_ref() {
+                    if token == &Token::CallOut { break }
+                    let Located { item: token, pos } = self.token_expect()?;
+                    let Token::Word(word) = token else {
+                        return expected_token_error!(Token::Word("".to_string()), token, self.path.clone(), pos)
+                    };
+                    let typ = self.node()?;
+                    let mut multi = false;
+                    if let Some(Located { item: Token::Args, pos: _ }) = self.token_ref() {
+                        multi = true;
+                        self.token_expect()?;
+                    }
+                    params.push(ParamNode::new(word, typ, multi));
+                }
+                let Located { item: _, pos: end_pos } = self.expect(Token::CallOut)?;
+                pos.extend(&end_pos);
+                Ok(Located::new(Node::Params(params), pos))
             }
             Token::VecIn => {
                 let mut nodes = vec![];

@@ -6,7 +6,7 @@ pub const SYMBOLS: [char; 11] = ['(', ')', '[', ']', '{', '}', '#', '@', ';', '\
 pub enum Token {
     Word(String), Int(i64), Float(f64), Bool(bool), Char(char), String(String),
     CallIn, CallOut, VecIn, VecOut, BodyIn, BodyOut,
-    Closure, Key(String), Args
+    Closure, Key(String), ParamIn, Args
 }
 impl Token {
     pub fn from_word(word: String) -> Self {
@@ -47,6 +47,7 @@ impl Display for Token {
             Self::BodyOut => write!(f, "}}"),
             Self::Closure => write!(f, "#"),
             Self::Key(key) => write!(f, "@{key}"),
+            Self::ParamIn => write!(f, "@("),
             Self::Args => write!(f, "..."),
         }
     }

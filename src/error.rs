@@ -160,3 +160,9 @@ macro_rules! can_only_index_vector_with_int {
         Err(self::Error::new(format!("can only index vec with int"), $path, Some($pos)))
     };
 }
+#[macro_export]
+macro_rules! param_no_type {
+    ($index:expr, $path:expr, $pos:expr) => {
+        Err(self::Error::new(format!("param #{} is not a type", $index), $path, Some($pos)))
+    };
+}
