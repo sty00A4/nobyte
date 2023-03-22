@@ -221,12 +221,12 @@ impl Program {
                         } else {
                             Ok(Value::None)
                         }
-                        Value::Vector(mut vector) => if args.len() > 0 {
+                        Value::Vector(vector) => if args.len() > 0 {
                             let index = args.remove(0);
                             if let Value::Int(index) = index {
-                                let index = index.min(0) as usize;
-                                if vector.get(index).is_some() {
-                                    Ok(vector.remove(index))
+                                let index = index.max(0) as usize;
+                                if let Some(value) = vector.get(index) {
+                                    Ok(value.clone())
                                 } else {
                                     Ok(Value::None)
                                 }
