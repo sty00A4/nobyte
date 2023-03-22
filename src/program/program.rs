@@ -399,6 +399,63 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     vars.insert("/".into(), Value::Function(functions.len()));
     functions.push(defs);
     
+    // =
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Bool), param_multi!("values", Bool)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Char), param_multi!("values", Char)], Function::Native(_eq)));
+    defs.push((vec![param!("start", String), param_multi!("values", String)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Vector), param_multi!("values", Vector)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Closure), param_multi!("values", Closure)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Function), param_multi!("values", Function)], Function::Native(_eq)));
+    defs.push((vec![param!("start", Params), param_multi!("values", Params)], Function::Native(_eq)));
+    strings.push("=".into());
+    vars.insert("=".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // !=
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Bool), param_multi!("values", Bool)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Char), param_multi!("values", Char)], Function::Native(_ne)));
+    defs.push((vec![param!("start", String), param_multi!("values", String)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Vector), param_multi!("values", Vector)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Closure), param_multi!("values", Closure)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Function), param_multi!("values", Function)], Function::Native(_ne)));
+    defs.push((vec![param!("start", Params), param_multi!("values", Params)], Function::Native(_ne)));
+    strings.push("!=".into());
+    vars.insert("!=".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // <
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_lt)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_lt)));
+    strings.push("<".into());
+    vars.insert("<".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // >
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_gt)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_gt)));
+    strings.push(">".into());
+    vars.insert(">".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // <=
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_le)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_le)));
+    strings.push("<=".into());
+    vars.insert("<=".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // >=
+    let mut defs = vec![];
+    defs.push((vec![param!("start", Int), param_multi!("values", Int)], Function::Native(_ge)));
+    defs.push((vec![param!("start", Float), param_multi!("values", Float)], Function::Native(_ge)));
+    strings.push(">=".into());
+    vars.insert(">=".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    
     // union
     let mut defs = vec![];
     defs.push((vec![param_multi!("values", Type)], Function::Native(_union)));
@@ -568,6 +625,132 @@ pub fn _div(program: &mut Program, pos: Position) -> Result<Value, Error> {
     }
     Ok(sum)
 }
+
+pub fn _eq(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        if start != value {
+            return Ok(Value::Bool(false))
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+pub fn _ne(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        if start == value {
+            return Ok(Value::Bool(false))
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+pub fn _lt(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        match value {
+            Value::Int(n2) => match &start {
+                Value::Int(n1) => if n1 >= &n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 >= &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &start {
+                Value::Int(n1) => if *n1 as f64 >= n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 >= &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+pub fn _gt(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        match value {
+            Value::Int(n2) => match &start {
+                Value::Int(n1) => if n1 <= &n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 <= &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &start {
+                Value::Int(n1) => if *n1 as f64 <= n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 <= &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+pub fn _le(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        match value {
+            Value::Int(n2) => match &start {
+                Value::Int(n1) => if n1 > &n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 > &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &start {
+                Value::Int(n1) => if *n1 as f64 > n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 > &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+pub fn _ge(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let mut start = program.var(&"start".into()).unwrap();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    while values.len() > 0 {
+        let value = values.remove(0);
+        match value {
+            Value::Int(n2) => match &start {
+                Value::Int(n1) => if n1 < &n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 < &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            Value::Float(n2) => match &start {
+                Value::Int(n1) => if (*n1 as f64) < n2 { return Ok(Value::Bool(false)) }
+                Value::Float(n1) => if n1 < &(n2 as f64) { return Ok(Value::Bool(false)) }
+                _ => panic!("type checking doesn't work")
+            }
+            _ => panic!("type checking doesn't work")
+        }
+        start = value;
+    }
+    Ok(Value::Bool(true))
+}
+
 pub fn _union(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");

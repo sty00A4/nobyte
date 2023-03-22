@@ -73,6 +73,7 @@ impl PartialEq for Value {
             (Self::Vector(v1), Self::Vector(v2)) => v1 == v2,
             (Self::Closure(addr1), Self::Closure(addr2)) => addr1 == addr2,
             (Self::Function(addr1), Self::Function(addr2)) => addr1 == addr2,
+            (Self::Params(params1), Self::Params(params2)) => params1 == params2,
             _ => false
         }
     }
