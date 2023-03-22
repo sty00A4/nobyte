@@ -101,9 +101,6 @@ impl Program {
                     continue 'search;
                 }
             }
-            if arg_idx < params.len() {
-                continue;
-            }
             arg_idx = 0;
             for param in params.iter() {
                 match self.vars.last_mut() {
