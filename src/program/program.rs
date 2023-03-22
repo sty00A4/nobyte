@@ -322,6 +322,7 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     vars.insert("closure".into(), Value::Type(Type::Closure));
     vars.insert("function".into(), Value::Type(Type::Function));
     vars.insert("type".into(), Value::Type(Type::Type));
+    vars.insert("number".into(), Value::Type(Type::Union(vec![Type::Int, Type::Float])));
 
     // set
     let mut defs = vec![];
@@ -372,6 +373,13 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     defs.push((vec![param_union_multi!("values", [Type::Int, Type::Float])], Function::Native(_div)));
     strings.push("/".into());
     vars.insert("/".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    
+    // union
+    let mut defs = vec![];
+    defs.push((vec![param_multi!("values", Type)], Function::Native(_union)));
+    strings.push("union".into());
+    vars.insert("union".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     Program::new(path, strings, closures, functions, vec![vars])
@@ -508,4 +516,17 @@ pub fn _div(program: &mut Program) -> Result<Value, Error> {
         }
     }
     Ok(sum)
+}
+pub fn _union(program: &mut Program) -> Result<Value, Error> {
+    let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let mut types = vec![];
+    for value in values {
+        let Value::Type(typ) = value else {
+            panic!("type checking doesn't work");
+        };
+        types.push(typ);
+    }
+    Ok(Value::Type(Type::Union(types)))
 }
