@@ -323,6 +323,7 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     vars.insert("function".into(), Value::Type(Type::Function));
     vars.insert("type".into(), Value::Type(Type::Type));
     vars.insert("number".into(), Value::Type(Type::Union(vec![Type::Int, Type::Float])));
+    vars.insert("indexable".into(), Value::Type(Type::Union(vec![Type::Vector, Type::String])));
 
     // set
     let mut defs = vec![];
