@@ -479,8 +479,23 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     // apply
     let mut defs = vec![];
     defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_apply)));
+    defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_apply)));
     strings.push("apply".into());
     vars.insert("apply".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // reduce
+    let mut defs = vec![];
+    defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_reduce)));
+    defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_reduce)));
+    strings.push("reduce".into());
+    vars.insert("reduce".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // filter
+    let mut defs = vec![];
+    defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_filter)));
+    defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_filter)));
+    strings.push("filter".into());
+    vars.insert("filter".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     Program::new(path, strings, closures, functions, vec![vars])
@@ -798,6 +813,48 @@ pub fn _apply(program: &mut Program, pos: Position) -> Result<Value, Error> {
         program.set("0".into(), value);
         let new_value = program.execute(f.clone())?;
         new_values.push(new_value);
+    }
+    Ok(Value::Vector(new_values))
+}
+pub fn _reduce(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::Closure(f_addr) = program.var(&"f".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let f = program.closures[f_addr].clone();
+    let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let mut sum: Option<Value> = None;
+    for value in values {
+        if sum.is_some() {
+            program.set("0".into(), sum.unwrap().clone());
+            program.set("1".into(), value);
+            sum = Some(program.execute(f.clone())?);
+        } else {
+            sum = Some(value);
+        }
+    }
+    Ok(sum.unwrap_or_default())
+}
+pub fn _filter(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::Closure(f_addr) = program.var(&"f".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let f = program.closures[f_addr].clone();
+    let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let mut new_values = vec![];
+    for value in values {
+        program.set("0".into(), value.clone());
+        let cond = program.execute(f.clone())?;
+        if let Value::Bool(cond) = cond {
+            if cond {
+                new_values.push(value);
+            }
+        } else {
+            return Err(Error::new(format!("expected closure to return a bool, got {}", cond.typ()), program.path.clone(), Some(pos)))
+        }
     }
     Ok(Value::Vector(new_values))
 }
