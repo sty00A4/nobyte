@@ -89,6 +89,9 @@ impl Program {
         }
         self.vars.last_mut()?.insert(word, value)
     }
+    pub fn setn(&mut self, n: usize, value: Value) -> Option<Value> {
+        self.set(n.to_string(), value)
+    }
     pub fn var(&self, word: &String) -> Option<Value> {
         for scope in self.vars.iter().rev() {
             if let Some(value) = scope.get(word) {
@@ -299,7 +302,7 @@ impl Program {
                             program.push_scope();
                             let closure = program.closures[addr].clone();
                             for i in 0..args.len() {
-                                program.set(i.to_string(), args.remove(0));
+                                program.setn(i, args.remove(0));
                             }
                             let value = program.execute(closure)?;
                             program.pop_scope();
@@ -810,7 +813,7 @@ pub fn _apply(program: &mut Program, pos: Position) -> Result<Value, Error> {
     };
     let mut new_values = vec![];
     for value in values {
-        program.set("0".into(), value);
+        program.setn(0, value);
         let new_value = program.execute(f.clone())?;
         new_values.push(new_value);
     }
@@ -827,8 +830,8 @@ pub fn _reduce(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let mut sum: Option<Value> = None;
     for value in values {
         if sum.is_some() {
-            program.set("0".into(), sum.unwrap().clone());
-            program.set("1".into(), value);
+            program.setn(0, sum.unwrap().clone());
+            program.setn(1, value);
             sum = Some(program.execute(f.clone())?);
         } else {
             sum = Some(value);
@@ -846,7 +849,7 @@ pub fn _filter(program: &mut Program, pos: Position) -> Result<Value, Error> {
     };
     let mut new_values = vec![];
     for value in values {
-        program.set("0".into(), value.clone());
+        program.setn(0, value.clone());
         let cond = program.execute(f.clone())?;
         if let Value::Bool(cond) = cond {
             if cond {
