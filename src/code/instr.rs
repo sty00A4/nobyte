@@ -4,7 +4,7 @@ use std::fmt::Display;
 pub enum Instr {
     Halt,
     Int(i64), Float(f64), Bool(bool), Char(char),
-    String(usize), Closure(usize),
+    String(usize), Closure(usize), Vector(usize),
     Var(usize), Params(usize), Call(usize)
 }
 impl Display for Instr {
@@ -17,6 +17,7 @@ impl Display for Instr {
             Self::Char(char) =>    write!(f, "CHAR      {char:?}"),
             Self::String(addr) =>  write!(f, "STRING    #{addr:x?}"),
             Self::Closure(addr) => write!(f, "CLOSURE   #{addr:x?}"),
+            Self::Vector(len) =>   write!(f, "VECTOR    {len}"),
             Self::Var(addr) =>     write!(f, "VAR       #{addr:x?}"),
             Self::Params(len) =>   write!(f, "PARAMS    {len}"),
             Self::Call(len) =>     write!(f, "CALL      {len}"),

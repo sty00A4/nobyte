@@ -81,6 +81,12 @@ impl Program {
         addr
     }
     pub fn set(&mut self, word: String, value: Value) -> Option<Value> {
+        for scope in self.vars.iter_mut().rev() {
+            if let Some(old_value) = scope.get_mut(&word) {
+                *old_value = value;
+                return None
+            }
+        }
         self.vars.last_mut()?.insert(word, value)
     }
     pub fn var(&self, word: &String) -> Option<Value> {
@@ -151,6 +157,14 @@ impl Program {
                 Char(char) => self.stack.push(Value::Char(char)),
                 String(addr) => self.stack.push(Value::String(self.strings[addr].clone())),
                 Closure(addr) => self.stack.push(Value::Closure(addr)),
+                Vector(len) => {
+                    let mut values = vec![];
+                    for _ in 0..len {
+                        values.push(self.stack.pop().unwrap());
+                    }
+                    let values: Vec<Value> = values.into_iter().rev().collect();
+                    self.stack.push(Value::Vector(values))
+                }
                 Var(addr) => match self.var(&self.strings[addr]) {
                     Some(value) => self.stack.push(value.clone()),
                     None => return not_defined_error!(self.strings[addr].clone(), self.path.clone(), pos)
@@ -462,6 +476,13 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     strings.push("union".into());
     vars.insert("union".into(), Value::Function(functions.len()));
     functions.push(defs);
+    
+    // apply
+    let mut defs = vec![];
+    defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_apply)));
+    strings.push("apply".into());
+    vars.insert("apply".into(), Value::Function(functions.len()));
+    functions.push(defs);
 
     Program::new(path, strings, closures, functions, vec![vars])
 }
@@ -763,4 +784,20 @@ pub fn _union(program: &mut Program, pos: Position) -> Result<Value, Error> {
         types.push(typ);
     }
     Ok(Value::Type(Type::Union(types)))
+}
+
+pub fn _apply(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::Closure(f_addr) = program.var(&"f".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let f = program.closures[f_addr].clone();
+    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let mut new_values = vec![];
+    for value in values {
+        program.set("0".into(), value);
+        new_values.push(program.execute(f.clone())?);
+    }
+    Ok(Value::Vector(new_values))
 }

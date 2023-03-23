@@ -75,9 +75,11 @@ impl Generator {
                 self.write(Instr::Call(len), head_pos.clone(), code);
             }
             Node::Vector(nodes) => {
+                let len = nodes.len();
                 for node in nodes {
                     self.generate(node, code)?;
                 }
+                self.write(Instr::Vector(len), pos, code)
             }
             Node::Body(nodes) => {
                 for node in nodes {
