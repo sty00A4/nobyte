@@ -35,7 +35,7 @@ pub fn run(path: Option<String>, text: String) -> Result<(), Error> {
     let ast = parser::parse(path.clone(), tokens)?;
     // println!("{ast}");
     let (code, strings, closures) = code::generate(path.clone(), ast)?;
-    println!("{}", join_enum!(code, "\n"));
+    // println!("{}", join_enum!(code, "\n"));
     let ret = program::run(path.clone(), code, strings, closures)?;
     if ret != Value::None {
         println!("{ret}");

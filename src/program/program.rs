@@ -90,7 +90,7 @@ impl Program {
         self.vars.last_mut()?.insert(word, value)
     }
     pub fn var(&self, word: &String) -> Option<Value> {
-        for scope in self.vars.iter() {
+        for scope in self.vars.iter().rev() {
             if let Some(value) = scope.get(word) {
                 return Some(value.clone())
             }
@@ -148,16 +148,15 @@ impl Program {
 
     pub fn execute(&mut self, code: Closure) -> Result<Value, Error> {
         for Located { item: instr, pos } in code {
-            use Instr::*;
             match instr {
-                Halt => break,
-                Int(int) => self.stack.push(Value::Int(int)),
-                Float(float) => self.stack.push(Value::Float(float)),
-                Bool(bool) => self.stack.push(Value::Bool(bool)),
-                Char(char) => self.stack.push(Value::Char(char)),
-                String(addr) => self.stack.push(Value::String(self.strings[addr].clone())),
-                Closure(addr) => self.stack.push(Value::Closure(addr)),
-                Vector(len) => {
+                Instr::Halt => break,
+                Instr::Int(int) => self.stack.push(Value::Int(int)),
+                Instr::Float(float) => self.stack.push(Value::Float(float)),
+                Instr::Bool(bool) => self.stack.push(Value::Bool(bool)),
+                Instr::Char(char) => self.stack.push(Value::Char(char)),
+                Instr::String(addr) => self.stack.push(Value::String(self.strings[addr].clone())),
+                Instr::Closure(addr) => self.stack.push(Value::Closure(addr)),
+                Instr::Vector(len) => {
                     let mut values = vec![];
                     for _ in 0..len {
                         values.push(self.stack.pop().unwrap());
@@ -165,11 +164,11 @@ impl Program {
                     let values: Vec<Value> = values.into_iter().rev().collect();
                     self.stack.push(Value::Vector(values))
                 }
-                Var(addr) => match self.var(&self.strings[addr]) {
+                Instr::Var(addr) => match self.var(&self.strings[addr]) {
                     Some(value) => self.stack.push(value.clone()),
                     None => return not_defined_error!(self.strings[addr].clone(), self.path.clone(), pos)
                 }
-                Params(len) => {
+                Instr::Params(len) => {
                     let mut params: Vec<Param> = vec![];
                     for i in 0..len {
                         let Value::Bool(multi) = self.stack.pop().unwrap() else {
@@ -185,7 +184,7 @@ impl Program {
                     }
                     self.stack.push(Value::Params(params.into_iter().rev().collect()));
                 }
-                Call(len) => {
+                Instr::Call(len) => {
                     let head = self.stack.pop().unwrap();
                     let mut args = vec![];
                     for _ in 0..len {
@@ -791,13 +790,14 @@ pub fn _apply(program: &mut Program, pos: Position) -> Result<Value, Error> {
         panic!("type checking doesn't work");
     };
     let f = program.closures[f_addr].clone();
-    let Value::Vector(mut values) = program.var(&"values".into()).unwrap() else {
+    let Value::Vector(values) = program.var(&"values".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
     let mut new_values = vec![];
     for value in values {
         program.set("0".into(), value);
-        new_values.push(program.execute(f.clone())?);
+        let new_value = program.execute(f.clone())?;
+        new_values.push(new_value);
     }
     Ok(Value::Vector(new_values))
 }
