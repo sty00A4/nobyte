@@ -5,7 +5,6 @@ A lisp-looking programming language for fun in Rust, a remaster of an old progra
 
 ### Soon
 - [x] argument collector `...` for functions that take in n values
-- [ ] `func` for creating functions
 - more io functions
     - [ ] `read` for reading a file
     - [ ] `write` for writing to a file
