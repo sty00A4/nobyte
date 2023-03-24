@@ -100,6 +100,14 @@ impl Program {
         }
         None
     }
+    pub fn var_mut(&mut self, word: &String) -> Option<&mut Value> {
+        for scope in self.vars.iter_mut().rev() {
+            if let Some(value) = scope.get_mut(word) {
+                return Some(value)
+            }
+        }
+        None
+    }
     pub fn func(&mut self, addr: usize, mut args: Vec<Value>, pos: Position) -> Result<Function, Error> {
         let defs = self.functions.get(addr).unwrap();
         let types: Vec<Type> = args.iter().map(|value| value.typ()).collect();
@@ -479,6 +487,7 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     vars.insert("union".into(), Value::Function(functions.len()));
     functions.push(defs);
     
+    // VECTOR MANIPULATION
     // map
     let mut defs = vec![];
     defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_map)));
@@ -499,6 +508,31 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_filter)));
     strings.push("filter".into());
     vars.insert("filter".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // len
+    let mut defs = vec![];
+    defs.push((vec![param!("x", Vector)], Function::Native(_len_vec)));
+    defs.push((vec![param!("x", String)], Function::Native(_len_str)));
+    strings.push("len".into());
+    vars.insert("len".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // vec-fill
+    let mut defs = vec![];
+    defs.push((vec![param!("length", Int), param!("value", Any)], Function::Native(_vec_fill)));
+    strings.push("vec-fill".into());
+    vars.insert("vec-fill".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // vec-push
+    let mut defs = vec![];
+    defs.push((vec![param!("var", String), param!("value", Any)], Function::Native(_vec_push)));
+    strings.push("vec-push".into());
+    vars.insert("vec-push".into(), Value::Function(functions.len()));
+    functions.push(defs);
+    // vec-pop
+    let mut defs = vec![];
+    defs.push((vec![param!("var", String)], Function::Native(_vec_pop)));
+    strings.push("vec-pop".into());
+    vars.insert("vec-pop".into(), Value::Function(functions.len()));
     functions.push(defs);
 
     Program::new(path, strings, closures, functions, vec![vars])
@@ -860,4 +894,59 @@ pub fn _filter(program: &mut Program, pos: Position) -> Result<Value, Error> {
         }
     }
     Ok(Value::Vector(new_values))
+}
+
+pub fn _len_vec(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::Vector(x) = program.var(&"x".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    Ok(Value::Int(x.len() as i64))
+}
+pub fn _len_str(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::String(x) = program.var(&"x".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    Ok(Value::Int(x.len() as i64))
+}
+
+pub fn _vec_fill(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::Int(length) = program.var(&"length".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let value = program.var(&"value".into()).unwrap();
+    let mut values = vec![];
+    for _ in 0..(length.abs() as usize) {
+        values.push(value.clone());
+    }
+    Ok(Value::Vector(values))
+}
+pub fn _vec_push(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::String(var) = program.var(&"var".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    let value = program.var(&"value".into()).unwrap();
+    if let Some(vector) = program.var_mut(&var) {
+        if let Value::Vector(vector) = vector {
+            vector.push(value);
+            Ok(Value::None)
+        } else {
+            Err(Error::new(format!("expected {var:?} to be a vec, got {}", vector.typ()), program.path.clone(), Some(pos)))
+        }
+    } else {
+        Err(Error::new(format!("{var:?} not found in this scope"), program.path.clone(), Some(pos)))
+    }
+}
+pub fn _vec_pop(program: &mut Program, pos: Position) -> Result<Value, Error> {
+    let Value::String(var) = program.var(&"var".into()).unwrap() else {
+        panic!("type checking doesn't work");
+    };
+    if let Some(vector) = program.var_mut(&var) {
+        if let Value::Vector(vector) = vector {
+            Ok(vector.pop().unwrap_or_default())
+        } else {
+            Err(Error::new(format!("expected {var:?} to be a vec, got {}", vector.typ()), program.path.clone(), Some(pos)))
+        }
+    } else {
+        Err(Error::new(format!("{var:?} not found in this scope"), program.path.clone(), Some(pos)))
+    }
 }
