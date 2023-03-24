@@ -479,12 +479,12 @@ pub fn std_program(path: Option<String>, mut strings: Vec<String>, closures: Vec
     vars.insert("union".into(), Value::Function(functions.len()));
     functions.push(defs);
     
-    // apply
+    // map
     let mut defs = vec![];
-    defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_apply)));
-    defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_apply)));
-    strings.push("apply".into());
-    vars.insert("apply".into(), Value::Function(functions.len()));
+    defs.push((vec![param!("f", Closure), param!("values", Vector)], Function::Native(_map)));
+    defs.push((vec![param!("values", Vector), param!("f", Closure)], Function::Native(_map)));
+    strings.push("map".into());
+    vars.insert("map".into(), Value::Function(functions.len()));
     functions.push(defs);
     // reduce
     let mut defs = vec![];
@@ -803,7 +803,7 @@ pub fn _union(program: &mut Program, pos: Position) -> Result<Value, Error> {
     Ok(Value::Type(Type::Union(types)))
 }
 
-pub fn _apply(program: &mut Program, pos: Position) -> Result<Value, Error> {
+pub fn _map(program: &mut Program, pos: Position) -> Result<Value, Error> {
     let Value::Closure(f_addr) = program.var(&"f".into()).unwrap() else {
         panic!("type checking doesn't work");
     };
